@@ -25,6 +25,10 @@ class InteractiveCli(cmd2.Cmd):
             result = cursor.fetchall()
         self.poutput('sql: {} \nresult: {}'.format(args.sql, result))
 
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        cm = connection_manager.ConnectionManager.getInstance()
+        cm.return_conn(self.conn)
+
 
 if __name__ == '__main__':
     import sys

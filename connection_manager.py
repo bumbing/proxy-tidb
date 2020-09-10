@@ -5,8 +5,8 @@ import tiup_manger
 import time
 from readerwriterlock import rwlock
 
-MINUTES_IDLE_TO_CLOSE_TIDB = 3
-SECONDS_IN_A_MINUTE = 60
+IDLE_TIMES_TO_SCALE_IN = 3
+SECONDS_TO_CHECK = 60
 TIDB_PORT = 4000
 LOCAL_HOST = "0.0.0.0"
 
@@ -63,13 +63,13 @@ class ConnectionManager(object):
 
     def __periodically_check(self):
         if self.connection_in_use == 0:
-            if self.idle_period < MINUTES_IDLE_TO_CLOSE_TIDB:
+            if self.idle_period < IDLE_TIMES_TO_SCALE_IN:
                 self.idle_period += 1
             else:
                 self.__scale_in_if_idle()
         else:
             self.idle_period = 0
-        threading.Timer(SECONDS_IN_A_MINUTE, self.__periodically_check).start()
+        threading.Timer(SECONDS_TO_CHECK, self.__periodically_check).start()
 
     def __establish_conn(self):
         if not self.is_db_instantiated:
@@ -96,7 +96,7 @@ class ConnectionManager(object):
             return
 
 def main():
-    # todo: move to test
+    #  todo: move to test
     connection_manager = ConnectionManager.getInstance()
     conn = connection_manager.offer_conn()
     with conn.cursor() as cursor:
