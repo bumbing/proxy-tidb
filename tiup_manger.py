@@ -9,13 +9,13 @@ class TiUpManager(object):
     @staticmethod
     def getInstance():
         """ Static access method. """
-        if TiUpManager.__instance == None:
+        if TiUpManager.__instance is None:
             TiUpManager()
         return TiUpManager.__instance
 
     def __init__(self):
         """ Virtually private constructor. """
-        if TiUpManager.__instance != None:
+        if TiUpManager.__instance is not None:
             raise Exception("This class is a singleton!")
         else:
             TiUpManager.__instance = self
@@ -23,18 +23,18 @@ class TiUpManager(object):
 
     def __setup(self):
         cmd = "tiup playground >/tmp/tiup_log.txt 2>&1 &"
-        subprocess.Popen(cmd, shell=True)
+        subprocess.call(cmd, shell=True)
 
     def scale_in(self, instance_type, num=0):
         cmd = "tiup playground scale-in --pid {pid}"
         pids = self.__get_pids_for_type(instance_type)
         for i in range(num, len(pids)):
             line = cmd.format(pid=pids[i].decode("utf-8"))
-            out = subprocess.Popen(line, shell=True)
+            subprocess.call(line, shell=True)
 
     def scale_out(self):
         cmd = "tiup playground scale-out --db 1"
-        out = subprocess.Popen(cmd, shell=True)
+        subprocess.call(cmd, shell=True)
 
     def __get_pids_for_type(self, instance_type):
         out = subprocess.Popen(['tiup', 'playground', 'display'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)

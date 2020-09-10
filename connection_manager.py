@@ -1,10 +1,14 @@
 import pymysql.cursors
 import threading
+import socket
 import tiup_manger
+import time
 from readerwriterlock import rwlock
 
 MINUTES_IDLE_TO_CLOSE_TIDB = 3
 SECONDS_IN_A_MINUTE = 60
+TIDB_PORT = 4000
+LOCAL_HOST = "0.0.0.0"
 
 
 # ConnectionManager maintains a connection pool to TiDB Servers. If a request comes in, it will check if there are idle
@@ -19,9 +23,21 @@ class ConnectionManager(object):
     connection_pool = []
     connection_in_use = 0
     idle_period = -1
+    __instance = None
+
+    @staticmethod
+    def getInstance():
+        """ Static access method. """
+        if ConnectionManager.__instance is None:
+            ConnectionManager()
+        return ConnectionManager.__instance
 
     def __init__(self):
-        self.__periodically_check()
+        if ConnectionManager.__instance is not None:
+            raise Exception("This class is a singleton!")
+        else:
+            ConnectionManager.__instance = self
+            self.__periodically_check()
 
     def offer_conn(self):
         if len(self.connection_pool) == 0:
@@ -65,6 +81,55 @@ class ConnectionManager(object):
                 self.connection_pool.clear()
             l.release()
 
-        connection = pymysql.connect(host='127.0.0.1', user='root', port=4000, charset='utf8mb4',
-                                     cursorclass=pymysql.cursors.DictCursor)
+        self.__wait_for_port_ready()
+        connection = pymysql.connect(host=LOCAL_HOST, user='root', port=TIDB_PORT)
         self.connection_pool.append(connection)
+
+    def __wait_for_port_ready(self):
+        while True:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            if sock.connect_ex((LOCAL_HOST, TIDB_PORT)) != 0:
+                time.sleep(2)
+                print("waiting for mysql port ready!")
+                continue
+            sock.close()
+            return
+
+def main():
+    # todo: move to test
+    connection_manager = ConnectionManager.getInstance()
+    conn = connection_manager.offer_conn()
+    with conn.cursor() as cursor:
+        # Create a new record
+        sql = "USE test"
+        cursor.execute(sql)
+        conn.commit()
+    print("sql 1")
+
+    with conn.cursor() as cursor:
+        # Create a new record
+        sql = "CREATE TABLE IF NOT EXISTS test (id INT)"
+        cursor.execute(sql)
+        conn.commit()
+    print("sql 2")
+
+    with conn.cursor() as cursor:
+        # Read a single record
+        sql = "INSERT INTO `test` VALUES (1)"
+        cursor.execute(sql)
+        conn.commit()
+    print("sql 3")
+
+    with conn.cursor() as cursor:
+        # Read a single record
+        sql = "SELECT * FROM test"
+        cursor.execute(sql)
+        result = cursor.fetchone()
+        print(result)
+    print("sql 4")
+
+    connection_manager.return_conn(conn)
+
+
+if __name__ == "__main__":
+    main()
